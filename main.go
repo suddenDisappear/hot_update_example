@@ -41,11 +41,11 @@ func reloadHttpServer(srv *http.Server) (*http.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	reloadServer := InitHttpServer()
+	reloadServer := initHttpServer()
 	return reloadServer, nil
 }
 
-func InitHttpServer() *http.Server {
+func initHttpServer() *http.Server {
 	handler := http.NewServeMux()
 	handler.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello World!")
@@ -70,15 +70,15 @@ func start(ctx context.Context) error {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	configure()
-	srv := InitHttpServer()
-	// TODO:差分配置文件
+	srv := initHttpServer()
+	// 使用debounce包裹防止config短时间内多次变更
 	debounceWrap := debounce(time.Second)
 	var mu sync.Mutex
 	viper.OnConfigChange(func(in fsnotify.Event) {
+		if in.Op&fsnotify.Write == 0 {
+			return
+		}
 		debounceWrap(func() {
-			if in.Op&fsnotify.Write == 0 {
-				return
-			}
 			mu.Lock()
 			defer mu.Unlock()
 			err := viper.Unmarshal(&config.C)
